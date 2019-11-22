@@ -2,7 +2,7 @@
 
 const Sheet = require('google-spreadsheet');
 
-String.prototype.replaceAll = function(search, replacement) {
+String.prototype.replaceAll = function (search, replacement) {
     var target = this;
     return target.split(search).join(replacement);
 };
@@ -21,24 +21,59 @@ const creds = {
     "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test-email-signup%40jovial-archive-142806.iam.gserviceaccount.com"
 }
 
-console.log(creds)
-
 const doc = new Sheet('1FV5nYK3ic3PgMzPYeKNrgM7CVJrsiVe1r_wW8iX6k3s');
 
 exports.handler = function (event, context, callback) {
+    switch (event.httpMethod) {
+        case 'OPTIONS':
+            preflight(callback, event.headers.origin);
+            break;
+        case 'POST':
+            saveEmail(JSON.parse(event.body).email, callback);
+            break;
+        case 'GET':
+            saveEmail("GET!", callback);
+            break;
+    }
+};
+
+function saveEmail(email, callback) {
     doc.useServiceAccountAuth(creds, function (err) {
         if (err) {
             console.log(err);
         }
 
-        const email = "bert@e.tk"
         doc.addRow(1, { "email": email }, function (err, response) {
             if (err) {
                 console.log(err)
             }
             if (response.email === email) {
-                callback(err, {statusCode: 200, body: email})
+                callback(err,
+                    {
+                        statusCode: 200,
+                        body: "{}",
+                        headers: {
+                            "Acces-Controll-Allow-Origin": "http://localhost:8888",
+                            'content-type': 'application/json'
+                        }
+                    })
             }
         });
     });
-};
+}
+
+function preflight(callback, remoteOrigin) {
+    console.log(remoteOrigin)
+    const allowedOrigin = remoteOrigin.includes('localhost') ? remoteOrigin : 'localhost:8888';
+
+    callback(null, {
+        statusCode: 204,
+        headers: {
+            'content-type': 'application/json',
+            'Access-Control-Allow-Origin': allowedOrigin,
+            'Access-Control-Allow-Headers': 'content-type',
+            'Access-Control-Allow-Methods': 'POST, GET, PUT',
+        },
+        body: "{}",
+    });
+}
